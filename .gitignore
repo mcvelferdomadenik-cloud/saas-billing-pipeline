@@ -1,0 +1,21 @@
+# Local planning/instruction files — not part of the public project
+CLAUDE.md
+PROJECT_PLAN.md
+
+# Secrets
+.env
+
+# Data (raw files + DuckDB warehouse)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# dbt
+dbt/target/
+dbt/logs/
+
+# Jupyter
+.ipynb_checkpoints/
