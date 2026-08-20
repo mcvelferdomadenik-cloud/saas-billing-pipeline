@@ -1,6 +1,7 @@
 # Local planning/instruction files — not part of the public project
 CLAUDE.md
 PROJECT_PLAN.md
+cursor.md
 
 # Secrets
 .env
