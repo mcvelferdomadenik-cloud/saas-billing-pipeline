@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 def get_stripe_api_key() -> str:
     """Return the Stripe secret key, failing loudly if missing or unsafe."""
     key = os.environ.get("STRIPE_API_KEY")
