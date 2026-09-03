@@ -1,29 +1,51 @@
 # saas-billing-pipeline
 
-Data engineering portfolio project: a simulated SaaS business runs on Stripe,
-and this pipeline turns its billing data into revenue analytics — MRR
-movements, churn, cohort retention, and failed-payment losses.
+*A tiny SaaS company, a real Stripe API, and the question every founder asks at 2 a.m.: where does the money go?*
 
-**Status: work in progress.** Phases 1–4 (seed, extraction, DuckDB load, dbt models) are done; analysis and CI are in progress.
+This is a data engineering + analytics portfolio project. I built a fake SaaS business inside a Stripe sandbox
+(three plans, 200 customers, twelve simulated months of signups, upgrades, cancellations and bouncing credit cards),
+then built the pipeline that turns Stripe's billing data into the numbers leadership actually wants:
+MRR and its movements, churn and why it happens, cohort retention, lifetime value, and how much revenue leaks
+through failed payments.
 
-## Architecture
+**Status:** phases 1–5 done (seed, extraction, warehouse, dbt models, analysis). Up next: CI and a daily scheduled run.
+
+## The story in one picture
 
 ```
-Stripe sandbox  →  Python extractor  →  DuckDB     →  dbt models  →  notebooks
-(fake business,    (incremental sync)   (warehouse)   (staging +      (analysis)
+Stripe sandbox  →  Python extractor  →  DuckDB     →  dbt models  →  Jupyter notebook
+(fake business,    (incremental sync)   (warehouse)   (staging +      (the answers)
  test clocks)                                          marts)
 ```
 
+1. **`seed`** creates the business. Stripe *test clocks* let you fast-forward time, so subscriptions really bill,
+   renew, upgrade and get cancelled — some customers even get a card that always declines.
+2. **`sync`** copies everything out of Stripe, raw. First run is a full backfill; every later run asks
+   `/v1/events` "what changed since my cursor?" and fetches only that.
+3. **`load`** upserts the raw JSON into DuckDB. Run it a hundred times, get the same tables.
+4. **`dbt build`** turns JSON blobs into a proper dimensional model and computes the MRR waterfall.
+5. **`analysis.ipynb`** asks the tables the leadership questions and writes down what it found.
+
+## What the data says
+
+- MRR grew from **$429 to $7,050** in a year, almost entirely from new signups — upgrades barely register.
+- Monthly churn sits at **2–4%**, except one month at 7.5% when Stripe gave up on a batch of failing cards.
+- **A quarter of all churn is accidental**: 10 customers didn't leave, their credit card did. That's ~$4,700 a year
+  recoverable with a "please update your card" email.
+- Enterprise customers are worth ~$3,600 over their lifetime; Basic monthly is the cheapest *and* the leakiest plan.
+
+The full walk-through with charts is in [`notebooks/analysis.ipynb`](notebooks/analysis.ipynb).
+
 ## Setup
 
-1. Create a [Stripe sandbox](https://docs.stripe.com/sandboxes) and put its
-   secret test key in a `.env` file in the project root:
+1. Create a [Stripe sandbox](https://docs.stripe.com/sandboxes) and put its secret test key in a `.env` file
+   in the project root:
 
    ```
    STRIPE_API_KEY=sk_test_...
    ```
 
-2. Install dependencies:
+2. Install everything (Python 3.14, managed with [uv](https://docs.astral.sh/uv/)):
 
    ```
    uv sync
@@ -36,25 +58,41 @@ Stripe sandbox  →  Python extractor  →  DuckDB     →  dbt models  →  not
 | `uv run python -m pipeline.run seed --customers 200` | Seed the sandbox: 3 plans, ~200 customers, 12 months of simulated billing via test clocks |
 | `uv run python -m pipeline.run sync` | Extract customers, subscriptions, invoices, charges and events into `data/raw/`. First run is a full backfill; later runs are incremental via `/v1/events` and the cursor in `data/state.json`. Add `--full` to force a backfill. |
 | `uv run python -m pipeline.run load` | Load `data/raw/` into DuckDB (`data/warehouse.duckdb`, schema `raw`), upserting by Stripe id so re-runs never duplicate rows |
-| `uv run python -m pytest` | Run the tests |
+| `cd dbt && uv run dbt build` | Build staging views and marts tables in DuckDB and run all 28 data tests |
+| `uv run python -m pytest` | Run the Python tests (fake Stripe API, in-memory DuckDB — no network needed) |
 | `uv run python -m ruff check .` | Lint the code |
-| `cd dbt && uv run dbt build` | Build staging views and marts tables in DuckDB and run all data tests |
 
-Seeding is idempotent and resumable: re-running skips finished work
-(`data/seed_state.json` tracks progress), and the same `--seed` always
-generates the same business.
+Everything is idempotent: seeding skips finished cohorts (`data/seed_state.json`), sync resumes from its cursor,
+load upserts, dbt rebuilds. If a step crashes halfway, run it again.
 
 ## Data model
 
-`dbt/models/staging/` unpacks the raw Stripe JSON into typed views (`stg_customers`, `stg_subscriptions`, `stg_invoices`, `stg_charges`, `stg_subscription_events`).
+`dbt/models/staging/` unpacks the raw Stripe JSON into typed views — one per raw table
+(`stg_customers`, `stg_subscriptions`, `stg_invoices`, `stg_charges`, `stg_subscription_events`).
 
-`dbt/models/marts/` holds the business logic:
+`dbt/models/marts/` is where the business logic lives:
 
 | Model | Grain | What it answers |
 | --- | --- | --- |
-| `dim_plan` | one row per price | plan catalog with MRR-normalised amounts |
+| `dim_plan` | one row per price | plan catalog, with yearly prices normalised to monthly MRR |
 | `dim_customer` | one row per customer | cohort month, current plan, lifetime revenue |
 | `fct_invoices` | one row per invoice | revenue, unpaid amounts, payment attempts |
 | `fct_subscription_events` | one row per start / upgrade / downgrade / cancellation | MRR before and after each change |
-| `mrr_customer_monthly` | customer × month | month-end MRR and movement (new, expansion, contraction, churn, reactivation) |
-| `mrr_monthly` | one row per month | the MRR waterfall |
+| `mrr_customer_monthly` | customer × month | month-end MRR and its movement: new, expansion, contraction, churn, reactivation |
+| `mrr_monthly` | one row per month | the MRR waterfall — reconciles to the cent |
+
+## Things I ran into (and what I learned)
+
+- **Test-clock objects are invisible to plain list endpoints.** `/v1/customers` returns nothing; you have to walk
+  the test clocks first. `/v1/events`, luckily, sees everything.
+- **Row-by-row inserts into DuckDB are slow** (13k events took minutes). Writing a staging file and doing one
+  `INSERT … SELECT … ON CONFLICT DO UPDATE` takes 3 seconds.
+- **Event timestamps are real time, not simulated time.** For the MRR timeline I had to take the subscription's own
+  `current_period_start` from inside the event payload.
+- **Money is `decimal`, not `float`.** Otherwise your waterfall is off by $0.0000000002 and the reconciliation test fails.
+- The Stripe API moved `invoice.subscription` to `invoice.parent.subscription_details.subscription` and dropped
+  `charge.invoice` — the docs you read and the JSON you get are not always the same version.
+
+## Stack
+
+Python 3.14 · uv · requests · DuckDB · dbt-duckdb · pandas · plotly · pytest · ruff
