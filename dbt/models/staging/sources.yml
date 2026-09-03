@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw Stripe objects loaded by `pipeline.run load`, one JSON document per row.
+    tables:
+      - name: customers
+      - name: subscriptions
+      - name: invoices
+      - name: charges
+      - name: events

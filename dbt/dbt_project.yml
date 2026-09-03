@@ -1,0 +1,14 @@
+name: saas_billing
+version: "1.0.0"
+profile: saas_billing
+
+model-paths: ["models"]
+
+models:
+  saas_billing:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts

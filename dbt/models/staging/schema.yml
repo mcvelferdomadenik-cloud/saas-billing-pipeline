@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: stg_customers
+    description: One row per Stripe customer.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+  - name: stg_subscriptions
+    description: One row per subscription (each has exactly one price in this dataset).
+    columns:
+      - name: subscription_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [active, past_due, canceled, unpaid, trialing, incomplete]
+  - name: stg_invoices
+    description: One row per invoice; period and price come from its single line item.
+    columns:
+      - name: invoice_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [draft, open, paid, void, uncollectible]
+  - name: stg_charges
+    columns:
+      - name: charge_id
+        data_tests: [unique, not_null]
+  - name: stg_subscription_events
+    description: customer.subscription.* events; previous_plan_key is set when the plan changed.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]

@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: dim_plan
+    description: Plan catalog derived from subscriptions; mrr_amount normalises yearly prices to monthly.
+    columns:
+      - name: price_id
+        data_tests: [unique, not_null]
+      - name: plan_key
+        data_tests: [unique, not_null]
+  - name: dim_customer
+    description: One row per customer with cohort month, current plan and lifetime revenue.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+  - name: fct_invoices
+    description: One row per invoice with plan attributes and payment outcome.
+    columns:
+      - name: invoice_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_id
+  - name: fct_subscription_events
+    description: Subscription lifecycle events with MRR before/after.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: event_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [started, upgraded, downgraded, canceled]
+  - name: mrr_customer_monthly
+    description: Customer x month grid with month-end MRR and movement category.
+    columns:
+      - name: movement
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [new, expansion, contraction, churn, reactivation]
+  - name: mrr_monthly
+    description: Monthly MRR waterfall.
+    columns:
+      - name: month
+        data_tests: [unique, not_null]
