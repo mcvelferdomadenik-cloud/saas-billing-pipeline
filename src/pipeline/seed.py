@@ -207,9 +207,9 @@ def seed_customers(count: int, seed: int) -> None:
             print(f"[{n}/{len(cohorts)}] {name}: already done")
             continue
         print(
-    f"[{n}/{len(cohorts)}] {name}: {len(cohort)} customers, "
-    f"signup month {cohort[0].signup_month}"
-)
+            f"[{n}/{len(cohorts)}] {name}: {len(cohort)} customers, "
+            f"signup month {cohort[0].signup_month}"
+        )
         seed_cohort(name, cohort, prices)
         state["completed"].append(name)
         save_state(state)
