@@ -4,8 +4,8 @@ Data engineering portfolio project: a simulated SaaS business runs on Stripe,
 and this pipeline turns its billing data into revenue analytics — MRR
 movements, churn, cohort retention, and failed-payment losses.
 
-**Status: work in progress.** Phase 1 (seeding the simulated business) is done;
-extraction, warehouse, and analytics are in progress.
+**Status: work in progress.** Phases 1 (seed) and 2 (incremental extraction) are done;
+warehouse and analytics are in progress.
 
 ## Architecture
 
@@ -35,8 +35,9 @@ Stripe sandbox  →  Python extractor  →  DuckDB     →  dbt models  →  not
 | Command | What it does |
 | --- | --- |
 | `uv run python -m pipeline.run seed --customers 200` | Seed the sandbox: 3 plans, ~200 customers, 12 months of simulated billing via test clocks |
-| `uv run pytest` | Run the tests |
-| `uv run ruff check .` | Lint the code |
+| `uv run python -m pipeline.run sync` | Extract customers, subscriptions, invoices, charges and events into `data/raw/`. First run is a full backfill; later runs are incremental via `/v1/events` and the cursor in `data/state.json`. Add `--full` to force a backfill. |
+| `uv run python -m pytest` | Run the tests |
+| `uv run python -m ruff check .` | Lint the code |
 
 Seeding is idempotent and resumable: re-running skips finished work
 (`data/seed_state.json` tracks progress), and the same `--seed` always
