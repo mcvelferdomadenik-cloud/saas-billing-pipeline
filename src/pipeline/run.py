@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from pipeline import extract, seed
+from pipeline import extract, load, seed
 
 
 def main() -> None:
@@ -21,6 +21,8 @@ def main() -> None:
         "--full", action="store_true", help="force a full backfill instead of incremental"
     )
 
+    sub.add_parser("load", help="Load data/raw/ into data/warehouse.duckdb")
+
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -29,6 +31,8 @@ def main() -> None:
         seed.run(count=args.customers, seed=args.seed)
     elif args.command == "sync":
         extract.sync(full=args.full)
+    elif args.command == "load":
+        load.load()
 
 
 if __name__ == "__main__":

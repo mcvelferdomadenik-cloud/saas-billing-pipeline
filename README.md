@@ -36,6 +36,7 @@ Stripe sandbox  →  Python extractor  →  DuckDB     →  dbt models  →  not
 | --- | --- |
 | `uv run python -m pipeline.run seed --customers 200` | Seed the sandbox: 3 plans, ~200 customers, 12 months of simulated billing via test clocks |
 | `uv run python -m pipeline.run sync` | Extract customers, subscriptions, invoices, charges and events into `data/raw/`. First run is a full backfill; later runs are incremental via `/v1/events` and the cursor in `data/state.json`. Add `--full` to force a backfill. |
+| `uv run python -m pipeline.run load` | Load `data/raw/` into DuckDB (`data/warehouse.duckdb`, schema `raw`), upserting by Stripe id so re-runs never duplicate rows |
 | `uv run python -m pytest` | Run the tests |
 | `uv run python -m ruff check .` | Lint the code |
 
