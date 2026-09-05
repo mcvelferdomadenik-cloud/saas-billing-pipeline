@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from pipeline import clocks, extract, load, seed
+from pipeline import clocks, export, extract, load, seed
 
 
 def main() -> None:
@@ -24,6 +24,7 @@ def main() -> None:
     sub.add_parser("load", help="Load data/raw/ into data/warehouse.duckdb")
     p_advance = sub.add_parser("advance", help="Move all test clocks forward (default: 1 day)")
     p_advance.add_argument("--days", type=int, default=1)
+    sub.add_parser("export", help="Write docs/data.json for the dashboard")
 
     args = parser.parse_args()
     logging.basicConfig(
@@ -38,6 +39,8 @@ def main() -> None:
         load.load()
     elif args.command == "advance":
         clocks.advance_all(days=args.days)
+    elif args.command == "export":
+        export.export()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where does the money go?</title>
+<meta name="description" content="MRR, churn and cohort retention for a simulated SaaS business billed through Stripe. Rebuilt daily by a Python + DuckDB + dbt pipeline.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --ink: #1b2233;
+    --muted: #5d6579;
+    --line: #dfe3ec;
+    --accent: #0f766e;
+    --new: #0f766e;
+    --expansion: #5eb8ad;
+    --reactivation: #7aa7d9;
+    --contraction: #d99a2b;
+    --churn: #b4413c;
+    --good: #0f766e;
+    --bad: #b4413c;
+    --plot-grid: #e6e9f0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161f; --surface: #1a2030; --ink: #e6e9f0; --muted: #98a2b8; --line: #2a3346;
+      --accent: #3fb3a6; --new: #3fb3a6; --expansion: #86d4c9; --reactivation: #8fb8e8;
+      --contraction: #e0ad4d; --churn: #d6635d; --good: #3fb3a6; --bad: #d6635d; --plot-grid: #263047;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161f; --surface: #1a2030; --ink: #e6e9f0; --muted: #98a2b8; --line: #2a3346;
+    --accent: #3fb3a6; --new: #3fb3a6; --expansion: #86d4c9; --reactivation: #8fb8e8;
+    --contraction: #e0ad4d; --churn: #d6635d; --good: #3fb3a6; --bad: #d6635d; --plot-grid: #263047;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; font-size: 15px; line-height: 1.5;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding: 40px 24px 56px; display: grid; gap: 28px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+  h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 2.1rem; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+  header p { margin: 0; color: var(--muted); max-width: 60ch; }
+  .stamp { font-family: "IBM Plex Mono", monospace; font-size: 0.8rem; color: var(--muted); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; display: grid; gap: 4px; }
+  .kpi .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .kpi .value { font-family: "IBM Plex Mono", monospace; font-size: 1.7rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .kpi .delta { font-size: 0.85rem; color: var(--muted); }
+  .kpi .delta.up { color: var(--good); } .kpi .delta.down { color: var(--bad); }
+  section { display: grid; gap: 10px; }
+  h2 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+  h2 small { font-weight: 400; color: var(--muted); margin-left: 8px; }
+  .chart { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-height: 380px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 820px) { .two { grid-template-columns: 1fr; } }
+  .tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 14px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 500; }
+  th:first-child, td:first-child { text-align: left; font-family: "IBM Plex Mono", monospace; font-size: 0.85rem; }
+  tr:last-child td { border-bottom: 0; }
+  .pill { display: inline-block; min-width: 3.4em; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; font-weight: 500;
+          background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+  .pill.ok { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
+  footer { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 16px; }
+  footer a { color: var(--accent); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <h1>Where does the money go?</h1>
+      <p>MRR, churn and retention for a simulated SaaS business billed through Stripe. Rebuilt every morning by the pipeline.</p>
+    </div>
+    <div class="stamp" id="stamp">loading…</div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <h2>MRR waterfall <small>where revenue came from and where it went, month by month</small></h2>
+    <div class="chart" id="waterfall"></div>
+  </section>
+
+  <div class="two">
+    <section>
+      <h2>Who leaves, and why</h2>
+      <div class="chart" id="plans"></div>
+    </section>
+    <section>
+      <h2>Churn by plan</h2>
+      <div class="tablewrap"><table id="plantable"></table></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>Cohort retention <small>share of each signup month still paying, n months later</small></h2>
+    <div class="chart" id="cohorts"></div>
+  </section>
+
+  <footer>
+    Built with Stripe test clocks.
+    <a href="https://github.com/mcvelferdomadenik-cloud/saas-billing-pipeline">Source and write-up on GitHub</a>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.3.1/plotly.min.js"></script>
+<script>
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const money = (v) => "$" + Math.round(v).toLocaleString("en-US");
+  const monthLabel = (m) => new Date(m).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+
+  function layout(extra) {
+    return Object.assign({
+      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+      font: { family: "IBM Plex Sans, system-ui, sans-serif", color: css("--ink"), size: 13 },
+      margin: { l: 56, r: 56, t: 16, b: 48 },
+      xaxis: { gridcolor: css("--plot-grid"), zeroline: false },
+      yaxis: { gridcolor: css("--plot-grid"), zeroline: false },
+      legend: { orientation: "h", y: -0.22 },
+    }, extra);
+  }
+  const config = { displayModeBar: false, responsive: true };
+
+  function render(data) {
+    const mrr = data.mrr_monthly;
+    const last = mrr[mrr.length - 1], prev = mrr[mrr.length - 2];
+    document.getElementById("stamp").textContent = `data as of ${monthLabel(last.month)}`;
+
+    const churnRate = last.churned_customers / prev.active_customers;
+    const kpis = [
+      ["MRR", money(last.mrr), `${last.mrr - prev.mrr >= 0 ? "+" : "−"}${money(Math.abs(last.mrr - prev.mrr))} vs last month`, last.mrr >= prev.mrr ? "up" : "down"],
+      ["Active customers", last.active_customers, `${last.new_customers} new · ${last.churned_customers} churned`, ""],
+      ["Churn rate", (churnRate * 100).toFixed(1) + "%", "customers lost ÷ customers last month", churnRate > 0.05 ? "down" : ""],
+      ["Unpaid invoices", money(data.unpaid_amount), "open, card declined", data.unpaid_amount > 0 ? "down" : ""],
+    ];
+    document.getElementById("kpis").innerHTML = kpis.map(([l, v, d, cls]) =>
+      `<div class="kpi"><span class="label">${l}</span><span class="value">${v}</span><span class="delta ${cls}">${d}</span></div>`
+    ).join("");
+
+    const months = mrr.map((r) => r.month);
+    const moves = [
+      ["new", "new_mrr", css("--new")], ["expansion", "expansion_mrr", css("--expansion")],
+      ["reactivation", "reactivation_mrr", css("--reactivation")],
+      ["contraction", "contraction_mrr", css("--contraction")], ["churn", "churn_mrr", css("--churn")],
+    ];
+    Plotly.newPlot("waterfall", [
+      ...moves.map(([name, key, color]) => ({ type: "bar", name, x: months, y: mrr.map((r) => r[key]), marker: { color } })),
+      { type: "scatter", name: "MRR at month end", x: months, y: mrr.map((r) => r.mrr), yaxis: "y2",
+        mode: "lines+markers", line: { color: css("--ink"), width: 2 }, marker: { size: 6 } },
+    ], layout({
+      barmode: "relative",
+      yaxis: { title: "movement", gridcolor: css("--plot-grid"), zeroline: true, zerolinecolor: css("--line"), tickprefix: "$" },
+      yaxis2: { title: "MRR", overlaying: "y", side: "right", showgrid: false, tickprefix: "$" },
+    }), config);
+
+    const plans = data.plans;
+    const planNames = plans.map((p) => p.plan.replace("_", " "));
+    Plotly.newPlot("plans", [
+      { type: "bar", orientation: "h", name: "cancelled on purpose", y: planNames, x: plans.map((p) => p.cancellation_requested), marker: { color: css("--contraction") } },
+      { type: "bar", orientation: "h", name: "card failed", y: planNames, x: plans.map((p) => p.payment_failed), marker: { color: css("--churn") } },
+    ], layout({
+      barmode: "stack",
+      xaxis: { title: "customers", gridcolor: css("--plot-grid"), zeroline: false, dtick: 2 },
+      yaxis: {
+        autorange: "reversed", gridcolor: "rgba(0,0,0,0)", automargin: true,
+        ticklabelstandoff: 14,
+      },
+      legend: { orientation: "h", y: 1.12, x: 0 },
+      margin: { l: 16, r: 24, t: 40, b: 56 },
+    }), config);
+
+    const rows = plans.map((p) => ({ ...p, total: p.active + p.canceled, pct: (p.canceled / (p.active + p.canceled)) * 100 }))
+      .sort((a, b) => b.pct - a.pct);
+    document.getElementById("plantable").innerHTML =
+      `<thead><tr><th>plan</th><th>active</th><th>canceled</th><th>churn</th></tr></thead><tbody>` +
+      rows.map((r) => `<tr><td>${r.plan}</td><td>${r.active}</td><td>${r.canceled}</td>
+        <td><span class="pill ${r.pct < 10 ? "ok" : ""}">${r.pct.toFixed(1)}%</span></td></tr>`).join("") + `</tbody>`;
+
+    const cohorts = [...new Set(data.cohorts.map((c) => c.cohort))];
+    const maxM = Math.max(...data.cohorts.map((c) => c.months_since));
+    const z = cohorts.map((co) => Array.from({ length: maxM + 1 }, (_, m) => {
+      const hit = data.cohorts.find((c) => c.cohort === co && c.months_since === m);
+      return hit ? hit.retained : null;
+    }));
+    Plotly.newPlot("cohorts", [{
+      type: "heatmap", z, x: Array.from({ length: maxM + 1 }, (_, i) => i), y: cohorts,
+      zmin: 0.5, zmax: 1, colorscale: [[0, css("--surface")], [1, css("--accent")]],
+      text: z.map((row) => row.map((v) => (v == null ? "" : Math.round(v * 100) + "%"))),
+      texttemplate: "%{text}", hovertemplate: "cohort %{y}<br>month %{x}: %{text}<extra></extra>",
+      showscale: false, xgap: 2, ygap: 2,
+    }], layout({
+      xaxis: { title: "months since signup", dtick: 1, gridcolor: "rgba(0,0,0,0)" },
+      yaxis: { autorange: "reversed", type: "category", gridcolor: "rgba(0,0,0,0)" },
+      margin: { l: 72, r: 24, t: 8, b: 48 },
+    }), config);
+  }
+
+  if (window.DASHBOARD_DATA) render(window.DASHBOARD_DATA);
+  else fetch("data.json").then((r) => r.json()).then(render);
+</script>
+</body>
+</html>
