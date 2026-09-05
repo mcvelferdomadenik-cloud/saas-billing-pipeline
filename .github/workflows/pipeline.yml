@@ -1,0 +1,40 @@
+name: Daily pipeline
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+
+      - run: uv sync
+
+      - name: Restore data from the previous run
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: pipeline-data-${{ github.run_id }}
+          restore-keys: pipeline-data-
+
+      - name: Advance test clocks by one day
+        run: uv run python -m pipeline.run advance
+
+      - name: Sync from Stripe
+        run: uv run python -m pipeline.run sync
+
+      - name: Load into DuckDB
+        run: uv run python -m pipeline.run load
+
+      - name: dbt build
+        working-directory: dbt
+        run: uv run dbt build
