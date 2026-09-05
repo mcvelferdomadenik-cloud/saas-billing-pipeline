@@ -24,6 +24,7 @@ def wait_until_ready(clock_id: str, timeout: int = 300) -> None:
         time.sleep(2)
     raise TimeoutError(f"test clock {clock_id} still advancing after {timeout}s")
 
+
 def advance(clock_id: str, frozen_time: int, retries: int = 5) -> None:
     """Advance one clock, backing off when Stripe rate-limits us (1s, 2s, 4s...)."""
     for attempt in range(retries + 1):
@@ -35,11 +36,13 @@ def advance(clock_id: str, frozen_time: int, retries: int = 5) -> None:
                 raise
             time.sleep(2**attempt)
 
+
 def advance_all(days: int = 1) -> int:
     """Move every ready test clock forward by `days`; return how many were advanced."""
     stripe.api_key = get_stripe_api_key()
     clocks = [
-        c for c in stripe.test_helpers.TestClock.list(limit=100).auto_paging_iter()
+        c
+        for c in stripe.test_helpers.TestClock.list(limit=100).auto_paging_iter()
         if c.status == "ready"
     ]
     for clock in clocks:

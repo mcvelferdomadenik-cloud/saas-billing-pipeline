@@ -21,15 +21,18 @@ PLANS_SQL = """
     select current_plan_key as plan,
            count(*) filter (where subscription_status = 'active') as active,
            count(*) filter (where subscription_status = 'canceled') as canceled,
-           count(*) filter (where cancellation_reason = 'cancellation_requested') as cancellation_requested,
+           count(*) filter (where cancellation_reason = 'cancellation_requested')
+               as cancellation_requested,
            count(*) filter (where cancellation_reason = 'payment_failed') as payment_failed
     from marts.dim_customer group by 1 order by 1
 """
 COHORTS_SQL = """
     select strftime(c.cohort_month, '%Y-%m') as cohort,
-           (year(m.month) - year(c.cohort_month)) * 12 + (month(m.month) - month(c.cohort_month)) as months_since,
+           (year(m.month) - year(c.cohort_month)) * 12
+               + (month(m.month) - month(c.cohort_month)) as months_since,
            round(avg(case when m.mrr > 0 then 1 else 0 end), 2) as retained
-    from marts.mrr_customer_monthly m join marts.dim_customer c using (customer_id)
+    from marts.mrr_customer_monthly m
+    join marts.dim_customer c using (customer_id)
     where m.month >= c.cohort_month group by 1, 2 order by 1, 2
 """
 UNPAID_SQL = "select coalesce(sum(amount_unpaid), 0) from marts.fct_invoices where not is_paid"
@@ -48,4 +51,4 @@ def export(db_path: Path = DB_PATH, out_path: Path = OUT_PATH) -> None:
         }
     out_path.parent.mkdir(exist_ok=True)
     out_path.write_text(json.dumps(payload, default=float))
-    log.info("wrote %s (%d months, %d plans)", out_path, len(payload["mrr_monthly"]), len(payload["plans"]))
+    log.info("wrote %s (%d months)", out_path, len(payload["mrr_monthly"]))

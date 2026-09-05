@@ -8,6 +8,8 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
     steps:
@@ -38,3 +40,14 @@ jobs:
       - name: dbt build
         working-directory: dbt
         run: uv run dbt build
+
+      - name: Export dashboard data
+        run: uv run python -m pipeline.run export
+
+      - name: Commit refreshed dashboard data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          git diff --cached --quiet || git commit -m "Refresh dashboard data"
+          git push
