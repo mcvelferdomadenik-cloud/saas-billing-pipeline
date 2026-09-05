@@ -8,7 +8,11 @@ then built the pipeline that turns Stripe's billing data into the numbers leader
 MRR and its movements, churn and why it happens, cohort retention, lifetime value, and how much revenue leaks
 through failed payments.
 
-**Status:** phases 1–5 done (seed, extraction, warehouse, dbt models, analysis). Up next: CI and a daily scheduled run.
+![CI](https://github.com/mcvelferdomadenik-cloud/saas-billing-pipeline/actions/workflows/ci.yml/badge.svg)
+![Daily pipeline](https://github.com/mcvelferdomadenik-cloud/saas-billing-pipeline/actions/workflows/pipeline.yml/badge.svg)
+
+**Status:** the pipeline runs itself. Every push is linted and tested, and every morning GitHub Actions advances the
+simulated business by one day and refreshes the warehouse.
 
 ## The story in one picture
 
@@ -58,12 +62,26 @@ The full walk-through with charts is in [`notebooks/analysis.ipynb`](notebooks/a
 | `uv run python -m pipeline.run seed --customers 200` | Seed the sandbox: 3 plans, ~200 customers, 12 months of simulated billing via test clocks |
 | `uv run python -m pipeline.run sync` | Extract customers, subscriptions, invoices, charges and events into `data/raw/`. First run is a full backfill; later runs are incremental via `/v1/events` and the cursor in `data/state.json`. Add `--full` to force a backfill. |
 | `uv run python -m pipeline.run load` | Load `data/raw/` into DuckDB (`data/warehouse.duckdb`, schema `raw`), upserting by Stripe id so re-runs never duplicate rows |
+| `uv run python -m pipeline.run advance` | Move every test clock forward one day (`--days N` for more), so the simulated business keeps billing |
 | `cd dbt && uv run dbt build` | Build staging views and marts tables in DuckDB and run all 28 data tests |
 | `uv run python -m pytest` | Run the Python tests (fake Stripe API, in-memory DuckDB — no network needed) |
 | `uv run python -m ruff check .` | Lint the code |
 
 Everything is idempotent: seeding skips finished cohorts (`data/seed_state.json`), sync resumes from its cursor,
 load upserts, dbt rebuilds. If a step crashes halfway, run it again.
+
+## Automation
+
+Two GitHub Actions workflows in `.github/workflows/`:
+
+- **`ci.yml`** runs on every push: ruff, pytest, then `dbt build` against a small committed fixture
+  (`tests/fixtures/raw/`, two test clocks' worth of sandbox data) so all 28 data tests run without touching Stripe.
+- **`pipeline.yml`** runs every day at 06:00 UTC: `advance` → `sync` → `load` → `dbt build`. The Stripe key lives in a
+  repository secret, and `data/` is carried between runs with `actions/cache`, so each day's sync is incremental
+  rather than a full backfill.
+
+Stripe deletes sandbox test clocks after ~30 days. When that happens, `seed` and `sync --full` rebuild the business
+from scratch — everything downstream is idempotent, so nothing else changes.
 
 ## Data model
 
