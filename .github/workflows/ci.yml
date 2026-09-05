@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+
+      - run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Unit tests
+        run: uv run pytest
+
+      - name: Load fixture data into DuckDB
+        run: |
+          mkdir -p data
+          uv run python -c "from pipeline import load; load.RAW_DIR = load.Path('tests/fixtures/raw'); load.load(load.Path('data/fixture.duckdb'))"
+
+      - name: dbt build
+        working-directory: dbt
+        run: uv run dbt build --target ci

@@ -1,9 +1,9 @@
 saas_billing:
   target: dev
   outputs:
-    dev:
+    ci:
       type: duckdb
-      path: ../data/warehouse.duckdb
+      path: ../data/fixture.duckdb
       threads: 1
       settings:
         TimeZone: UTC
