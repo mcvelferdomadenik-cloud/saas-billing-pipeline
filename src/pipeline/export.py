@@ -41,7 +41,9 @@ UNPAID_SQL = "select coalesce(sum(amount_unpaid), 0) from marts.fct_invoices whe
 def export(db_path: Path = DB_PATH, out_path: Path = OUT_PATH) -> None:
     """Query the marts and write one JSON file the static dashboard can fetch."""
     with duckdb.connect(str(db_path), read_only=True) as con:
-        rows = lambda sql: con.sql(sql).df().to_dict(orient="records")  # noqa: E731
+        def rows(sql: str) -> list[dict]:
+            result = con.sql(sql)
+            return [dict(zip(result.columns, row, strict=True)) for row in result.fetchall()]
         payload = {
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "mrr_monthly": rows(MRR_SQL),

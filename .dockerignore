@@ -1,0 +1,7 @@
+.venv
+data
+.git
+notebooks
+tests
+docs
+*.duckdb
