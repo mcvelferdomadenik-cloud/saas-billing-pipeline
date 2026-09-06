@@ -8,6 +8,8 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "dagster>=1.13.21",
+    "dagster-dbt>=0.29.21",
     "dbt-duckdb>=1.11.0",
     "duckdb>=1.5.5",
     "python-dotenv>=1.2.3",
@@ -21,6 +23,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "dagster-webserver>=1.13.21",
     "ipykernel>=7.3.0",
     "kaleido>=1.4.0",
     "nbformat>=5.11.1",
@@ -36,3 +39,6 @@ extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.uv]
+override-dependencies = ["dbt-core>=1.12"]

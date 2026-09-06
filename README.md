@@ -37,6 +37,12 @@ into DuckDB · `dbt build` models it, snapshots every subscription change (SCD t
 this customer on in March?") and runs 30+ data tests · `export` feeds the dashboard. Every step is idempotent — if it
 crashes, run it again.
 
+[Dagster](https://dagster.io) ties it together: every raw table, dbt model and the dashboard file is an *asset*, and
+Dagster works out the order, runs the daily job and keeps the history. `uv run dagster dev -m pipeline.orchestration`
+opens the graph below.
+
+![Dagster lineage](docs/img/dagster_lineage.png)
+
 ## Run it yourself
 
 You need a [Stripe sandbox](https://docs.stripe.com/sandboxes) key and Docker.
@@ -55,4 +61,4 @@ Without Docker: `uv sync`, then the same commands as `uv run python -m pipeline.
 
 ## Stack
 
-Python 3.14 · uv · requests · DuckDB · dbt · pandas · plotly · pytest · ruff · Docker · GitHub Actions · Plotly.js on GitHub Pages
+Python 3.14 · uv · requests · DuckDB · dbt · Dagster · pandas · plotly · pytest · ruff · Docker · GitHub Actions · Plotly.js on GitHub Pages
