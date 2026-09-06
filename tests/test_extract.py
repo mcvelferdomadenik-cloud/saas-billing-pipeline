@@ -92,6 +92,22 @@ def test_incremental_unpacks_snapshots_in_chronological_order():
     assert result["customers"] == [{"object": "customer", "id": "cus_1"}]
     assert result["invoices"] == [{"object": "invoice", "id": "in_1"}]
 
+def test_incremental_skips_previews_without_id():
+    events = [
+        {
+            "id": "evt_1",
+            "created": 10,
+            "data": {"object": {"object": "invoice", "status": "draft"}},
+        },
+    ]
+    session = FakeSession([FakeResponse(200, {"data": events, "has_more": False})])
+    client = StripeClient("sk_test_x", session=session)
+
+    result = extract.incremental(client, since=5)
+
+    assert "invoices" not in result
+    assert len(result["events"]) == 1
+
 
 def test_backfill_walks_clocks_then_customers():
     session = FakeSession(

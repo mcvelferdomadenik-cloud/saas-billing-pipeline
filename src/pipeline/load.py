@@ -18,6 +18,8 @@ def latest_snapshots(folder: Path) -> list[dict]:
     latest: dict[str, dict] = {}
     for path in sorted(folder.glob("*.json")):
         for obj in json.loads(path.read_text()):
+            if "id" not in obj:
+                continue
             latest[obj["id"]] = obj
     return list(latest.values())
 

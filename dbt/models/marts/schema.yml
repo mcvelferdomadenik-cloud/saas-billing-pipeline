@@ -47,3 +47,10 @@ models:
     columns:
       - name: month
         data_tests: [unique, not_null]
+  - name: dim_subscription_history
+    description: Type-2 subscription history from the dbt snapshot; is_current marks the open row.
+    columns:
+      - name: subscription_id
+        data_tests: [not_null]
+      - name: valid_from
+        data_tests: [not_null]

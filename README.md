@@ -33,8 +33,9 @@ flowchart LR
 ```
 
 `seed` builds the business on Stripe test clocks · `sync` pulls what changed since the last run · `load` upserts it
-into DuckDB · `dbt build` models it and runs 28 data tests · `export` feeds the dashboard. Every step is idempotent —
-if it crashes, run it again.
+into DuckDB · `dbt build` models it, snapshots every subscription change (SCD type 2, so you can ask "what plan was
+this customer on in March?") and runs 30+ data tests · `export` feeds the dashboard. Every step is idempotent — if it
+crashes, run it again.
 
 ## Run it yourself
 

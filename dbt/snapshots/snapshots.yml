@@ -1,0 +1,13 @@
+version: 2
+
+snapshots:
+  - name: subscriptions_snapshot
+    description: >
+      Type-2 history of every subscription: a new row whenever status or plan changes,
+      with dbt_valid_from / dbt_valid_to marking the interval.
+    relation: ref('stg_subscriptions')
+    config:
+      schema: snapshots
+      unique_key: subscription_id
+      strategy: check
+      check_cols: [status, plan_key, canceled_at]

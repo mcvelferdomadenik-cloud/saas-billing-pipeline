@@ -134,7 +134,7 @@ def incremental(client: StripeClient, since: int) -> dict[str, list[dict]]:
     for event in events:
         obj = event["data"]["object"]
         folder = OBJECT_TYPES.get(obj.get("object"))
-        if folder:
+        if folder and "id" in obj:
             result.setdefault(folder, []).append(obj)
     return result
 
