@@ -1,8 +1,10 @@
 """Dagster definitions: the pipeline as a graph of assets, dbt models included."""
 
+import json
 from pathlib import Path
 
 from dagster import (
+    AssetCheckResult,
     AssetExecutionContext,
     AssetKey,
     AssetSelection,
@@ -10,6 +12,7 @@ from dagster import (
     Definitions,
     ScheduleDefinition,
     asset,
+    asset_check,
     define_asset_job,
     multi_asset,
 )
@@ -54,6 +57,16 @@ def dashboard_data() -> None:
     """docs/data.json that feeds the static dashboard."""
     export.export()
 
+@asset_check(asset=dashboard_data)
+def dashboard_has_data() -> AssetCheckResult:
+    """The exported JSON must carry at least a year of MRR rows and a non-zero latest month."""
+    data = json.loads(Path("docs/data.json").read_text())
+    months = data["mrr_monthly"]
+    latest_mrr = months[-1]["mrr"] if months else 0
+    return AssetCheckResult(
+        passed=len(months) >= 12 and latest_mrr > 0,
+        metadata={"months": len(months), "latest_mrr": latest_mrr},
+    )
 
 daily_job = define_asset_job("daily_pipeline", selection=AssetSelection.all())
 daily_schedule = ScheduleDefinition(job=daily_job, cron_schedule="0 6 * * *")
@@ -63,4 +76,5 @@ defs = Definitions(
     jobs=[daily_job],
     schedules=[daily_schedule],
     resources={"dbt": DbtCliResource(project_dir=dbt_project)},
+    asset_checks=[dashboard_has_data],
 )

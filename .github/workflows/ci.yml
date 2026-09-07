@@ -27,6 +27,13 @@ jobs:
           mkdir -p data
           uv run python -c "from pipeline import load; load.RAW_DIR = load.Path('tests/fixtures/raw'); load.load(load.Path('data/fixture.duckdb'))"
 
+      - name: dbt deps
+        working-directory: dbt
+        run: uv run dbt deps
+
       - name: dbt build
         working-directory: dbt
         run: uv run dbt build --target ci
+
+      - name: Docker build
+        run: docker build .

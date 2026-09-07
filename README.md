@@ -34,7 +34,7 @@ flowchart LR
 
 `seed` builds the business on Stripe test clocks · `sync` pulls what changed since the last run · `load` upserts it
 into DuckDB · `dbt build` models it, snapshots every subscription change (SCD type 2, so you can ask "what plan was
-this customer on in March?") and runs 30+ data tests · `export` feeds the dashboard. Every step is idempotent — if it
+this customer on in March?") and runs 36 data tests · `export` feeds the dashboard. Every step is idempotent — if it
 crashes, run it again.
 
 [Dagster](https://dagster.io) ties it together: every raw table, dbt model and the dashboard file is an *asset*, and
@@ -42,6 +42,11 @@ Dagster works out the order, runs the daily job and keeps the history. `uv run d
 opens the graph below.
 
 ![Dagster lineage](docs/img/dagster_lineage.png)
+
+And because "the job went green" is not the same as "the numbers are right", the pipeline checks itself: dbt
+source freshness (raw tables older than a week fail the run), [dbt-expectations](https://github.com/metaplane/dbt-expectations)
+business rules (MRR in a sane range, churn never positive, at least a year of months, at least 100 customers), a
+Dagster asset check on the exported dashboard JSON, and a GitHub Issue that opens itself when the daily run fails.
 
 ## Run it yourself
 

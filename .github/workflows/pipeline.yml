@@ -28,21 +28,19 @@ jobs:
           key: pipeline-data-${{ github.run_id }}
           restore-keys: pipeline-data-
 
+      - name: dbt deps
+        working-directory: dbt
+        run: uv run dbt deps
+
       - name: Advance test clocks by one day
         run: uv run python -m pipeline.run advance
 
-      - name: Sync from Stripe
-        run: uv run python -m pipeline.run sync
+      - name: Run the Dagster job (sync → load → dbt build → export)
+        run: uv run dagster job execute -m pipeline.orchestration -j daily_pipeline
 
-      - name: Load into DuckDB
-        run: uv run python -m pipeline.run load
-
-      - name: dbt build
+      - name: dbt source freshness
         working-directory: dbt
-        run: uv run dbt build
-
-      - name: Export dashboard data
-        run: uv run python -m pipeline.run export
+        run: uv run dbt source freshness
 
       - name: Commit refreshed dashboard data
         run: |

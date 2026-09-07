@@ -10,5 +10,6 @@ COPY README.md ./
 COPY dbt ./dbt
 COPY docker/entrypoint.sh ./entrypoint.sh
 RUN uv sync --frozen --no-dev
+RUN cd dbt && uv run --no-sync dbt deps
 
 ENTRYPOINT ["./entrypoint.sh"]
