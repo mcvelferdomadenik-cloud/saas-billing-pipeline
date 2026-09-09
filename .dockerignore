@@ -5,3 +5,6 @@ notebooks
 tests
 docs
 *.duckdb
+dbt/target
+dbt/logs
+dbt/dbt_packages

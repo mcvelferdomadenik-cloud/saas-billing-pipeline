@@ -69,6 +69,12 @@ Results land in `data/` (DuckDB warehouse) and `docs/data.json` (dashboard). Ope
 
 Without Docker: `uv sync`, then the same commands as `uv run python -m pipeline.run <command>` and `cd dbt && uv run dbt build`.
 
+## Security, briefly
+
+The Stripe key lives only in `.env` (gitignored) and in a GitHub Actions secret, and it is a sandbox key anyway.
+Workflows get the least permissions they need, actions are pinned to commit SHAs, the Docker base images are pinned,
+and Dependabot watches the lockfile, the actions and the images.
+
 ## Stack
 
 Python 3.14 · uv · requests · DuckDB · dbt · Dagster · pandas · plotly · pytest · ruff · Docker · GitHub Actions · Plotly.js on GitHub Pages
