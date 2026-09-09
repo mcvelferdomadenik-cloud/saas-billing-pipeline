@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     env:
       STRIPE_API_KEY: ${{ secrets.STRIPE_API_KEY }}
     steps:
@@ -28,9 +29,9 @@ jobs:
           key: pipeline-data-${{ github.run_id }}
           restore-keys: pipeline-data-
 
-      - name: dbt deps
+      - name: dbt deps + parse
         working-directory: dbt
-        run: uv run dbt deps
+        run: uv run dbt deps && uv run dbt parse
 
       - name: Advance test clocks by one day
         run: uv run python -m pipeline.run advance
@@ -49,3 +50,13 @@ jobs:
           git add docs/data.json
           git diff --cached --quiet || git commit -m "Refresh dashboard data"
           git push
+
+      - name: Open an issue if the pipeline failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Daily pipeline failed on $(date -u +%Y-%m-%d)" \
+            --body "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --label pipeline-failure
