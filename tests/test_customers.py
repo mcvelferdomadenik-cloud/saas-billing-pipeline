@@ -32,3 +32,9 @@ def test_distributions_roughly_match_the_dials():
     failing = sum(p.failing_card for p in profiles) / len(profiles)
     assert 0.40 < basic < 0.60
     assert 0.04 < failing < 0.12
+
+def test_signup_from_limits_how_far_back_customers_sign_up():
+    profiles = generate_customers(50, seed=1, signup_from=11)
+
+    assert {p.signup_month for p in profiles} == {11}
+    assert all(p.event is None for p in profiles)

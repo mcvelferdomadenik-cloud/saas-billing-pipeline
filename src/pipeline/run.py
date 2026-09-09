@@ -20,11 +20,15 @@ def main() -> None:
     p_sync.add_argument(
         "--full", action="store_true", help="force a full backfill instead of incremental"
     )
-
+    p_seed.add_argument(
+        "--signup-from", type=int, default=0, help="earliest simulation month for signups"
+    )
     sub.add_parser("load", help="Load data/raw/ into data/warehouse.duckdb")
     p_advance = sub.add_parser("advance", help="Move all test clocks forward (default: 1 day)")
     p_advance.add_argument("--days", type=int, default=1)
     sub.add_parser("export", help="Write docs/data.json for the dashboard")
+    p_reseed = sub.add_parser("reseed", help="Seed a new wave of customers if no test clocks exist")
+    p_reseed.add_argument("--customers", type=int, default=30)
 
     args = parser.parse_args()
     logging.basicConfig(
@@ -32,7 +36,7 @@ def main() -> None:
     )
     logging.getLogger("stripe").setLevel(logging.WARNING)
     if args.command == "seed":
-        seed.run(count=args.customers, seed=args.seed)
+        seed.run(count=args.customers, seed=args.seed, signup_from=args.signup_from)
     elif args.command == "sync":
         extract.sync(full=args.full)
     elif args.command == "load":
@@ -41,7 +45,8 @@ def main() -> None:
         clocks.advance_all(days=args.days)
     elif args.command == "export":
         export.export()
-
+    elif args.command == "reseed":
+        seed.reseed_if_empty(count=args.customers)
 
 if __name__ == "__main__":
     main()

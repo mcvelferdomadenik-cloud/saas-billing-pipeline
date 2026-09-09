@@ -154,3 +154,25 @@ def test_write_raw_and_state_round_trip(tmp_path, monkeypatch):
     assert extract.load_state() == {}
     extract.save_state({"cursor": 42})
     assert extract.load_state() == {"cursor": 42}
+
+def test_incremental_drops_the_cascade_of_a_deleted_test_clock():
+    events = [
+        {"id": "evt_1", "type": "customer.subscription.deleted", "created": 10,
+         "data": {"object": {"object": "subscription", "id": "sub_1", "test_clock": "clock_dead"}}},
+        {"id": "evt_2", "type": "test_helpers.test_clock.deleted", "created": 11,
+         "data": {"object": {"object": "test_helpers.test_clock", "id": "clock_dead"}}},
+        {
+            "id": "evt_3",
+            "type": "customer.subscription.updated",
+            "created": 12,
+            "data": {
+                "object": {"object": "subscription", "id": "sub_2", "test_clock": "clock_alive"}
+            },
+        },
+    ]
+    session = FakeSession([FakeResponse(200, {"data": events, "has_more": False})])
+
+    result = extract.incremental(extract.StripeClient("sk_test", session), since=0)
+
+    assert sorted(e["id"] for e in result["events"]) == ["evt_2", "evt_3"]
+    assert [s["id"] for s in result["subscriptions"]] == ["sub_2"]

@@ -79,14 +79,14 @@ class CustomerProfile:
     event_month: int | None
 
 
-def generate_customers(count: int, seed: int = 42) -> list[CustomerProfile]:
-    """Same count + seed always returns the exact same list."""
+def generate_customers(count: int, seed: int = 42, signup_from: int = 0) -> list[CustomerProfile]:
+    """Same count + seed always returns the exact same list; signup_from limits how far back."""
     rng = Random(seed)
     profiles = []
     for i in range(count):
         first = rng.choice(FIRST_NAMES)
         last = rng.choice(LAST_NAMES)
-        signup = rng.randrange(MONTHS)
+        signup = rng.randrange(signup_from, MONTHS)
         plan = rng.choices(list(PLAN_WEIGHTS), weights=list(PLAN_WEIGHTS.values()))[0]
         interval = "year" if rng.random() < YEARLY_SHARE else "month"
         failing = rng.random() < FAILING_CARD_SHARE

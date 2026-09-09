@@ -48,6 +48,11 @@ source freshness (raw tables older than a week fail the run), [dbt-expectations]
 business rules (MRR in a sane range, churn never positive, at least a year of months, at least 100 customers), a
 Dagster asset check on the exported dashboard JSON, and a GitHub Issue that opens itself when the daily run fails.
 
+One more thing Stripe does: it deletes test clocks after 30 days, and with them every customer on them — sending
+a burst of cancellation events that look exactly like real churn. So the pipeline treats the warehouse as history,
+not as a mirror: the deletion cascade is dropped, old customers keep their last real state, and when the sandbox is
+empty the daily run signs up a fresh wave of customers. The business rebuilds itself every month.
+
 ## Run it yourself
 
 You need a [Stripe sandbox](https://docs.stripe.com/sandboxes) key and Docker.

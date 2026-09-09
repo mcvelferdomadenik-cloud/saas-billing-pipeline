@@ -186,9 +186,9 @@ def seed_cohort(name: str, cohort: list[CustomerProfile], prices: dict[str, str]
     advance_to(clock.id, month_start(MONTHS) + 2 * 3600)
 
 
-def seed_customers(count: int, seed: int) -> None:
+def seed_customers(count: int, seed: int, signup_from: int = 0) -> None:
     prices = get_price_ids()
-    profiles = generate_customers(count, seed=seed)
+    profiles = generate_customers(count, seed=seed, signup_from=signup_from)
     state = load_state()
 
     # group by signup month, then chunk into clock-sized cohorts of 3
@@ -216,11 +216,22 @@ def seed_customers(count: int, seed: int) -> None:
     print("seeding complete")
 
 
-def run(count: int = 200, seed: int = 42) -> None:
+def run(count: int = 200, seed: int = 42, signup_from: int = 0) -> None:
     stripe.api_key = get_stripe_api_key()
     for plan in PLANS:
         ensure_product(plan)
         ensure_price(plan, f"{plan['id']}_monthly", "month", plan["monthly"])
         ensure_price(plan, f"{plan['id']}_yearly", "year", plan["yearly"])
     print("plan catalog ready")
-    seed_customers(count, seed)
+    seed_customers(count, seed, signup_from)
+
+
+def reseed_if_empty(count: int = 30) -> bool:
+    """Stripe deletes test clocks after 30 days; when they are all gone, sign up a new wave."""
+    stripe.api_key = get_stripe_api_key()
+    if stripe.test_helpers.TestClock.list(limit=1).data:
+        print("test clocks still alive, nothing to do")
+        return False
+    today = date.today()
+    run(count=count, seed=today.year * 100 + today.month, signup_from=MONTHS - 1)
+    return True

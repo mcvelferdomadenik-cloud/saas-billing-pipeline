@@ -125,10 +125,22 @@ def save_state(state: dict) -> None:
 
 
 def incremental(client: StripeClient, since: int) -> dict[str, list[dict]]:
-    """Fetch events since the cursor and unpack the object snapshot each one carries."""
+    """Fetch events since the cursor and unpack the object snapshot each one carries.
+
+    When a test clock is deleted, Stripe cancels and deletes everything on it. Those
+    events are dropped so the warehouse keeps the last real state instead of a fake churn.
+    """
     events = client.list_all("events", {"created[gte]": since})
     events.reverse()  # Stripe returns newest first; we want chronological order
-    log.info("incremental: %d events since %s", len(events), since)
+    dead_clocks = {
+        e["data"]["object"]["id"]
+        for e in events
+        if e.get("type") == "test_helpers.test_clock.deleted"
+    }
+    events = [e for e in events if e["data"]["object"].get("test_clock") not in dead_clocks]
+    log.info(
+        "incremental: %d events since %s (%d clocks deleted)", len(events), since, len(dead_clocks)
+    )
 
     result: dict[str, list[dict]] = {"events": events}
     for event in events:

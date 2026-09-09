@@ -33,6 +33,9 @@ jobs:
         working-directory: dbt
         run: uv run dbt deps && uv run dbt parse
 
+      - name: Rebuild the business if Stripe expired the test clocks
+        run: uv run python -m pipeline.run reseed
+
       - name: Advance test clocks by one day
         run: uv run python -m pipeline.run advance
 
