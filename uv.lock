@@ -1587,7 +1587,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "dagster-webserver", specifier = ">=1.13.21" },
+    { name = "dagster-webserver", specifier = ">=1.13.22" },
     { name = "ipykernel", specifier = ">=7.3.0" },
     { name = "kaleido", specifier = ">=1.4.0" },
     { name = "nbformat", specifier = ">=5.11.1" },
