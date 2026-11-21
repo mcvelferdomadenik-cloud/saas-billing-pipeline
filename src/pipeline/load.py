@@ -40,7 +40,7 @@ def upsert(con: duckdb.DuckDBPyConnection, table: str, objects: list[dict]) -> N
             f"""
             INSERT INTO raw.{table}
             SELECT json->>'$.id', json, now()
-            FROM read_json(?, format='array', records=false)
+            FROM read_json(?, format='array', records=false, columns={{'json': 'JSON'}})
             ON CONFLICT (id) DO UPDATE SET data = excluded.data, loaded_at = excluded.loaded_at
             """,
             [str(staging)],

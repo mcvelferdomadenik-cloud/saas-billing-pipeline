@@ -48,3 +48,16 @@ def test_load_reads_every_folder(tmp_path, monkeypatch):
     con = duckdb.connect(str(db), read_only=True)
     assert con.execute("SELECT count(*) FROM raw.customers").fetchone() == (1,)
     assert con.execute("SELECT count(*) FROM raw.invoices").fetchone() == (2,)
+
+
+def test_upsert_keeps_keys_that_appear_late():
+    con = duckdb.connect()
+    con.execute("CREATE SCHEMA raw")
+    events = [{"id": f"evt_{i}", "pm": {"card": {}}} for i in range(25_000)]
+    events.append({"id": "evt_new", "pm": {"blik": {}, "card": {}}})
+
+    load.upsert(con, "events", events)
+
+    assert con.execute("SELECT count(*) FROM raw.events").fetchone() == (25_001,)
+    blik = con.execute("SELECT data->'$.pm.blik' FROM raw.events WHERE id = 'evt_new'").fetchone()
+    assert blik == ("{}",)
